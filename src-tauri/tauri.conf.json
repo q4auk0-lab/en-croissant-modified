@@ -81,7 +81,7 @@
         ],
         "enable": true
       },
-      "csp": "0.0.0.0"
+      "csp": "default-src 'self' http://127.0.0.1:*;"
     }
   }
 }
