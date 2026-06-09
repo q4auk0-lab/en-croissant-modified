@@ -33,7 +33,7 @@ import { unwrap } from "@/utils/unwrap";
 import GenericCard from "../common/GenericCard";
 import type { FileMetadata, FileType } from "../files/file";
 
-type ImportType = "PGN" | "Link" | "FEN";
+type ImportType = "PGN" | "Link" | "FEN" | "Local";
 
 const FILE_TYPES = [
   { label: "Files.FileType.Game", value: "game" },
@@ -59,6 +59,7 @@ export default function ImportModal({
   const [fen, setFen] = useState("");
   const [file, setFile] = useState<string | null>(null);
   const [link, setLink] = useState("");
+  const [localUrl, setLocalUrl] = useState("http://127.0.0.1:5000/get_fen");
   const [importType, setImportType] = useState<ImportType>("PGN");
   const [filetype, setFiletype] = useState<FileType>("game");
   const [loading, setLoading] = useState(false);
@@ -172,6 +173,48 @@ export default function ImportModal({
           type: "analysis",
         };
       });
+    } else if (importType === "Local") {
+      if (!localUrl) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const response = await fetch(localUrl, { method: "GET" });
+        if (!response.ok) {
+          setError(`Fetch failed: ${response.status}`);
+          setLoading(false);
+          return;
+        }
+        const data = await response.json();
+        const fetchedFen = data.fen;
+        if (!fetchedFen) {
+          setError("Response'da 'fen' alanı bulunamadı");
+          setLoading(false);
+          return;
+        }
+        const res = parseFen(fetchedFen.trim());
+        if (res.isErr) {
+          setError(chessopsError(res.error));
+          setLoading(false);
+          return;
+        }
+        const parsedFen = makeFen(res.value);
+        setCurrentTab((prev) => {
+          const tree = defaultTree(parsedFen);
+          tree.headers.fen = parsedFen;
+          sessionStorage.setItem(prev.value, JSON.stringify({ version: 0, state: tree }));
+          return {
+            ...prev,
+            name: t("Home.Card.AnalysisBoard.Title"),
+            gameOrigin: { kind: "none" },
+            type: "analysis",
+          };
+        });
+      } catch (e) {
+        setError(`Bağlantı hatası: ${e}`);
+        setLoading(false);
+        return;
+      }
     } else if (importType === "FEN") {
       const res = parseFen(fen.trim());
       if (res.isErr) {
@@ -303,12 +346,26 @@ export default function ImportModal({
         }}
       />
     ))
+    .with("Local", () => (
+      <TextInput
+        value={localUrl}
+        onChange={(event) => setLocalUrl(event.currentTarget.value)}
+        label="Local FEN URL"
+        description="GET isteği atılır, dönen JSON'dan 'fen' alanı okunur"
+        error={error}
+        data-autofocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSubmit();
+        }}
+      />
+    ))
     .exhaustive();
 
   const disabled = match(importType)
     .with("PGN", () => !pgn && !file)
     .with("Link", () => !link)
     .with("FEN", () => !fen)
+    .with("Local", () => !localUrl)
     .exhaustive();
 
   return (
@@ -337,6 +394,13 @@ export default function ImportModal({
           isSelected={importType === "FEN"}
           setSelected={setImportType}
           Header={<Text ta="center">FEN</Text>}
+        />
+
+        <GenericCard
+          id={"Local"}
+          isSelected={importType === "Local"}
+          setSelected={setImportType}
+          Header={<Text ta="center">Local</Text>}
         />
       </Group>
 
