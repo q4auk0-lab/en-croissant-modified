@@ -81,7 +81,7 @@
         ],
         "enable": true
       },
-      "csp": null
+      "csp": "0.0.0.0"
     }
   }
 }
