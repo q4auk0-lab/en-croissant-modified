@@ -7,6 +7,8 @@ import { useStore } from "zustand";
 import { TreeStateContext } from "@/components/common/TreeStateContext";
 import { getCastlingSquare, swapMove } from "@/utils/chessops";
 import FenSearch from "./FenSearch";
+import { listen } from "@tauri-apps/api/event";
+import { useEffect } from "react"; // zaten var
 
 type Castlingrights = {
   k: boolean;
@@ -60,6 +62,12 @@ function FenInputInner({ currentFen, setup }: { currentFen: string; setup: Setup
 
   const store = useContext(TreeStateContext)!;
   const setFen = useStore(store, (s) => s.setFen);
+  useEffect(() => {
+  const unlisten = listen<string>("set-fen", (e) => {
+    setFen(e.payload);
+  });
+  return () => { unlisten.then(f => f()); };
+}, [setFen]);
 
   const { whiteCastling, blackCastling } = useMemo(() => getCastlingRights(setup), [setup]);
 
