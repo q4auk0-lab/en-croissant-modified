@@ -17,6 +17,8 @@ mod pgn;
 mod progress;
 mod puzzle;
 mod sound;
+mod fen_server;
+use crate::fen_server::start_fen_server;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -232,7 +234,8 @@ fn main() {
             }
             #[cfg(not(target_os = "linux"))]
             app.manage(sound::SoundServerPort(0));
-
+            let fen_port = start_fen_server(app.handle().clone());
+            log::info!("FEN server on port {fen_port}");
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_cli::init())?;
 
